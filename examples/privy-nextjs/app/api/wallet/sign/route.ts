@@ -61,10 +61,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call Privy's rawSign API
-    const result = await privy.wallets().rawSign(walletId, {
-      params: { hash },
-    });
+    // Call Privy's rawSign API with user authorization context
+    // The user JWT is required for user-owned wallets
+    const result = await privy.wallets().rawSign(
+      walletId,
+      { user_jwts: [token] },
+      { params: { hash } }
+    );
 
     return NextResponse.json({ signature: result.signature });
   } catch (error) {

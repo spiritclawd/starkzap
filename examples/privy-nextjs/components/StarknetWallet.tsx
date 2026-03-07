@@ -48,10 +48,6 @@ export function StarknetWallet() {
   // Connect Starknet wallet using starkzap
   const connectStarknetWallet = useCallback(async (walletData: WalletData) => {
     const sdk = getSDK();
-    const token = await getAccessToken();
-    if (!token) {
-      throw new Error('No access token available');
-    }
 
     const onboard = await sdk.onboard({
       strategy: OnboardStrategy.Privy,
@@ -62,9 +58,16 @@ export function StarknetWallet() {
           walletId: walletData.walletId,
           publicKey: walletData.publicKey,
           serverUrl: `${window.location.origin}/api/wallet/sign`,
-          headers: () => ({
-            'Authorization': `Bearer ${token}`,
-          }),
+          // Re-fetch token on each signing request to handle token expiration
+          headers: async () => {
+            const freshToken = await getAccessToken();
+            if (!freshToken) {
+              throw new Error('No access token available');
+            }
+            return {
+              'Authorization': `Bearer ${freshToken}`,
+            };
+          },
         }),
       },
     });
@@ -108,11 +111,17 @@ export function StarknetWallet() {
     }
   }, [authenticated, starknetWallet, ensureStarknetWallet, connectStarknetWallet, checkDeployment]);
 
+  // Clear local wallet state when Privy reports unauthenticated
+  useEffect(() => {
+    if (!authenticated) {
+      setStarknetWallet(null);
+      setPrivyWalletData(null);
+      setIsDeployed(null);
+    }
+  }, [authenticated]);
+
   // Disconnect wallet
   const handleDisconnect = useCallback(async () => {
-    setStarknetWallet(null);
-    setPrivyWalletData(null);
-    setIsDeployed(null);
     setError(null);
     await logout();
   }, [logout]);
